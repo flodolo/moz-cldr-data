@@ -167,7 +167,6 @@ def main():
             else:
                 missing_locales.append(locale)
         if locale_code not in moz_languages:
-            print locale
             missing_moz_locales.append(locale)
     missing_locales.sort()
     missing_moz_locales.sort()
@@ -250,7 +249,7 @@ def main():
 
     # Save .csv data
     output_file = open('output.csv', 'w')
-    output_file.write(',Region Names,,,Language Names\n')
+    output_file.write(',Language Names,,,Region Names\n')
     output_file.write('Locale (CLDR),Total,Differences,%,Total,Differences,%\n')
     csv_rows.sort()
     for line in csv_rows:
