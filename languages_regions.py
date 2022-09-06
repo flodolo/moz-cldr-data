@@ -125,6 +125,10 @@ def main():
         if region_code not in cldr_regions:
             missing_regions.append(f"{region_code}: {region_name}")
         elif region_name != cldr_regions[region_code]:
+            # Antigua & Barbuda = Antigua and Barbuda
+            if region_name == cldr_regions[region_code].replace("&", "and"):
+                continue
+
             different_values_reg.append(
                 f"{region_code}\n  CLDR: {cldr_regions[region_code]}\n  Mozilla: {region_name}"
             )
