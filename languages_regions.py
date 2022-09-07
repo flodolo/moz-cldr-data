@@ -1,12 +1,14 @@
 #! /usr/bin/env python
 
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from glob import glob
+from urllib.request import urlopen
 import json
 import os
 import sys
-
-# You should run this script in a virtualenv, after installing requirements
-# (both Python and Node)
 from compare_locales import parser
 
 
@@ -27,15 +29,27 @@ def parse_file(file_path, storage):
         print(e)
 
 
+def parse_content(file_content, storage):
+    file_parser = parser.getParser(".ftl")
+    file_parser.readContents(file_content)
+    try:
+        entities = file_parser.parse()
+        for entity in entities:
+            # Ignore Junk
+            if isinstance(entity, parser.Junk):
+                continue
+            if entity.raw_val is not None:
+                storage[str(entity)] = entity.raw_val
+    except Exception as e:
+        print(f"Error parsing remote file.")
+        print(e)
+
+
 def main():
     # Path to this script
     script_folder = os.path.abspath(os.path.dirname(__file__))
 
-    # Path to folder containing clones from http://hg.mozilla.org/l10n-central
-    l10n_path = "/Users/flodolo/mozilla/mercurial/l10n_clones/locales"
-
     # Path to clone of https://hg.mozilla.org/l10n/gecko-strings
-    en_path = "/Users/flodolo/mozilla/mercurial/gecko-strings-quarantine"
     l10n_path = "/Users/flodolo/mozilla/mercurial/l10n_clones/locales/{}"
 
     # This array is used to map a Mozilla code to CLDR, e.g.
@@ -71,10 +85,14 @@ def main():
 
     # Read languages from en-US
     moz_languages = {}
-    parse_file(
-        os.path.join(en_path, "toolkit", "toolkit", "intl", "languageNames.ftl"),
-        moz_languages,
-    )
+    url = "https://hg.mozilla.org/mozilla-central/raw-file/tip/toolkit/locales/en-US/toolkit/intl/languageNames.ftl"
+    try:
+        response = urlopen(url)
+        file_content = response.read()
+        parse_content(file_content, moz_languages)
+    except Exception as e:
+        sys.exit(f"Error reading remote regionNames.ftl: {e}")
+
     # Read languages from CLDR
     cldr_localenames_path = os.path.join(
         script_folder, "node_modules", "cldr-localenames-full", "main"
@@ -107,10 +125,14 @@ def main():
 
     # Read regions from en-US
     moz_regions = {}
-    parse_file(
-        os.path.join(en_path, "toolkit", "toolkit", "intl", "regionNames.ftl"),
-        moz_regions,
-    )
+    url = "https://hg.mozilla.org/mozilla-central/raw-file/tip/toolkit/locales/en-US/toolkit/intl/regionNames.ftl"
+    try:
+        response = urlopen(url)
+        file_content = response.read()
+        parse_content(file_content, moz_regions)
+    except Exception as e:
+        sys.exit(f"Error reading remote regionNames.ftl: {e}")
+
     # Read regions from CLDR
     with open(
         os.path.join(cldr_localenames_path, "en", "territories.json")
@@ -127,6 +149,9 @@ def main():
         elif region_name != cldr_regions[region_code]:
             # Antigua & Barbuda = Antigua and Barbuda
             if region_name == cldr_regions[region_code].replace("&", "and"):
+                continue
+            # Saint Barthelemy = St. Barthelemy
+            if region_name == cldr_regions[region_code].replace("St.", "Saint"):
                 continue
 
             different_values_reg.append(
@@ -180,9 +205,7 @@ def main():
             if locale in seed_locales:
                 missing_locales.append(f"{locale} (available in seed)")
             elif locale_code in seed_locales:
-                missing_locales.append(
-                    f"{locale} (available in seed as {locale_code})"
-                )
+                missing_locales.append(f"{locale} (available in seed as {locale_code})")
             else:
                 missing_locales.append(locale)
         if locale_code not in moz_languages:
